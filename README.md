@@ -120,6 +120,121 @@ add_executable(YourGameName
 ├── main.cpp            # 程式入口 (目前設定為測試模板章節)
 
 └── CMakeLists.txt      # CMake 建置設定檔
+
+## 📜 劇本撰寫指南 (Script Writing Guide)
+為了讓遊戲能順利讀取大家寫的劇本，請務必遵守以下格式規範。
+
+### ⚠️ 1. 最重要的存檔格式
+編碼 (Encoding)：檔案 必須 存為 UTF-8 格式。
+
+如果在 Windows 記事本，存檔時請在下方編碼選單選擇 UTF-8。
+
+如果選錯（如 ANSI 或 Big5），遊戲裡的中文會變成亂碼。
+
+### 🖼️ 2. 演出指令 (標籤)
+所有指令都必須用中括號 [...] 包起來，指令內請使用英文。
+
+背景切換
+格式：[BG_檔名]
+
+邏輯：會自動去 assets/img/background/ 資料夾找對應的 .png。
+
+範例：
+
+[BG_school] (載入 school.png)
+
+[BG_lab] (載入 lab.png)
+
+人物立繪
+格式：[CHAR_角色名_表情]
+
+邏輯：程式會自動判斷「底線 _」前面的名字當作資料夾，並載入對應圖片。
+
+重要命名規則：圖片檔名必須是 角色名_表情.png。
+
+範例：
+
+[CHAR_xiaoxun_normal] (載入 assets/img/xiaoxun/xiaoxun_normal.png)
+
+[CHAR_senpai_shock] (載入 assets/img/senpai/senpai_shock.png)
+
+清除人物：使用 [CLEAR] 可以把目前的人物立繪清掉。
+
+隱藏對話框 (演出用)
+[HIDE]：隱藏對話框（適合展示全螢幕圖片或過場）。
+
+[SHOW]：重新顯示對話框。
+
+⚠️ 注意：使用 [HIDE] 後，下一行請務必留一行文字（或打 ...），否則程式會瞬間跳過，玩家會感覺沒隱藏到。
+
+### 🎵 3. 音樂與音效
+播放 BGM：[MUSIC_檔名]
+
+範例：[MUSIC_mystery] (播放 assets/music/mystery.mp3)
+
+音樂會自動循環播放。
+
+停止 BGM：[MUSIC_stop]
+
+播放音效：[SFX_檔名]
+
+範例：[SFX_scream] (播放 assets/sound/scream.wav)
+
+音效只會播一次，不會循環。
+
+### 💬 4. 對話格式
+系統會自動判斷是否有「冒號」來決定顯示方式。
+
+有名字的對話
+格式：名字：對話內容 (支援全形 ： 與半形 :)
+
+效果：名字會顯示在左上角的名字框，對話顯示在下方。
+
+範例：
+
+Plaintext
+
+小勛：學長，你怎麼在這裡？
+旁白 / 內心獨白
+格式：直接寫內容，或者用括號 (...) 包起來。
+
+效果：不會顯示名字框，括號會自動被程式隱藏。
+
+範例：
+
+Plaintext
+
+(突然，燈閃了三下...)
+或是直接寫：
+突然，燈閃了三下...
+### 📂 5. 素材檔名規範 (給負責找圖的人)
+全部小寫英文：請勿使用中文檔名、空白鍵或特殊符號。
+
+❌ School BG.png
+
+✅ school.png
+
+圖片格式：統一使用 .png (支援透明去背)。
+
+音樂格式：BGM 使用 .mp3，音效使用 .wav。
+
+📝 劇本範例 (可以直接複製去改)
+Plaintext
+
+[BG_school]
+[MUSIC_daily]
+[CHAR_xiaoxun_normal]
+小勛：今天天氣真好啊。
+(突然，手機響了起來。)
+[SFX_phone_ring]
+[CHAR_xiaoxun_shock]
+小勛：是學長打來的？
+[MUSIC_stop]
+學長：快跑... 不要回頭...
+[HIDE]
+...
+[SHOW]
+(電話掛斷了。)
 ## 📝 版權與致謝
 本專案使用 SDL2 及其相關擴充庫。
 
