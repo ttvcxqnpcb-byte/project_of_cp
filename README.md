@@ -1,1 +1,2 @@
 # project_of_cp
+以下有兩個class可以使用，分別是StoryManager跟LTexture
