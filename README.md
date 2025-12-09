@@ -102,14 +102,23 @@ add_executable(YourGameName
 ## 📂 檔案結構說明
 .
 ├── assets/             # 遊戲素材 (圖片、音樂、劇本、字體)
-├── BackgroundMusic.* # 背景音樂與音效管理
+
+├── BackgroundMusic.*  # 背景音樂與音效管理
+
 ├── Character.* # 角色圖片管理 (繼承自 LTexture)
-├── GameChapter.h       # [介面] 所有遊戲章節的基底類別
+
+├── GameChapter.h      # [介面] 所有遊戲章節的基底類別
+
 ├── ChapterTemplate.* # [模板] 供組員複製使用的章節模板
+
 ├── LTexture.* # 紋理包裝類別 (處理圖片載入與渲染)
+
 ├── SoundEffect.* # 短音效管理
+
 ├── StoryManager.* # 核心劇情管理器 (解析劇本、打字機效果)
+
 ├── main.cpp            # 程式入口 (目前設定為測試模板章節)
+
 └── CMakeLists.txt      # CMake 建置設定檔
 ## 📝 版權與致謝
 本專案使用 SDL2 及其相關擴充庫。
