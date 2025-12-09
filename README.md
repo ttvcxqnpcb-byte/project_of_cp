@@ -22,7 +22,7 @@
     * SDL2_image
     * SDL2_ttf
     * SDL2_mixer
-* **IDE**：推薦使用 **CLion** (已配置好 CMake 整合)。
+* **IDE**：自己喜歡即可。
 
 ---
 
