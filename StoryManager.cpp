@@ -423,7 +423,9 @@ void StoryManager::updateTexture()
 
     int w, h;
     SDL_GetRendererOutputSize(gRenderer, &w, &h);
+
     float scale = (float)h / 960.0f;
+    //if (scale < 1.0f) scale = 1.0f;
 
     int boxMargin = w * 0.05;
     int borderThickness = w * 0.01;
