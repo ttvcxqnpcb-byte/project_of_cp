@@ -27,7 +27,7 @@ bool StoryManager::loadScript(std::string path)
     std::string line;
     while (std::getline(file, line))
     {
-        while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n' || line.back() == ' ')) {
             line.pop_back();
         }
         if (!line.empty()) {
@@ -129,7 +129,6 @@ void StoryManager::handleContinue()
                 mCurrentLineIndex++;
             }
             else if (parseBackslashTag(line)) {
-                mCurrentLineIndex++;
                 return;
             }
             else {
@@ -424,9 +423,7 @@ void StoryManager::updateTexture()
 
     int w, h;
     SDL_GetRendererOutputSize(gRenderer, &w, &h);
-
     float scale = (float)h / 960.0f;
-    if (scale < 1.0f) scale = 1.0f;
 
     int boxMargin = w * 0.05;
     int borderThickness = w * 0.01;
