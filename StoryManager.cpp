@@ -27,7 +27,8 @@ bool StoryManager::loadScript(std::string path)
     std::string line;
     while (std::getline(file, line))
     {
-        while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) {
+        // 同時移除 \r, \n 以及每一行尾端多餘的空白鍵 (防呆)
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n' || line.back() == ' ')) {
             line.pop_back();
         }
         if (!line.empty()) {
@@ -55,6 +56,7 @@ bool StoryManager::loadScript(std::string path)
 
 void StoryManager::handleBack()
 {
+    // 回到上一行時，先把所有暫存的圖片清掉
     if (mIsTempBG) {
         mBackgroundTexture.free();
         mIsTempBG = false;
@@ -74,9 +76,9 @@ void StoryManager::handleBack()
     while (searchIndex >= 0)
     {
         std::string line = mLines[searchIndex];
-
+        
         bool isSquareTag = (line.size() > 2 && line.front() == '[' && line.back() == ']');
-
+        
         if (!isSquareTag)
         {
             break;
@@ -107,6 +109,7 @@ void StoryManager::handleContinue()
     }
     else
     {
+        // 離開上一行，進入新的一行前，把暫存的東西殺掉
         if (mIsTempBG) {
             mBackgroundTexture.free();
             mIsTempBG = false;
@@ -124,7 +127,7 @@ void StoryManager::handleContinue()
         while (!isFinished())
         {
             std::string line = mLines[mCurrentLineIndex];
-
+            
             if (parseTag(line)) {
                 mCurrentLineIndex++;
             }
@@ -211,7 +214,7 @@ void StoryManager::parseLine(std::string rawLine)
     mNameTexture.free();
 
     if (!name.empty()) {
-        SDL_Color nameColor = { 255, 255, 0 };
+        SDL_Color nameColor = { 255, 255, 0 }; 
         mNameTexture.loadFromRenderedText(name, nameColor);
     }
 }
@@ -313,7 +316,7 @@ bool StoryManager::parseBackslashTag(std::string line)
             mIsTempPuzzle = true;
             return true;
         }
-
+        
         if (tag.find("BG_") == 0)
         {
             std::string name = tag.substr(3);
@@ -426,12 +429,12 @@ void StoryManager::updateTexture()
     SDL_GetRendererOutputSize(gRenderer, &w, &h);
 
     float scale = (float)h / 960.0f;
-    if (scale < 1.0f) scale = 1.0f;
+    
+    // if (scale < 1.0f) scale = 1.0f;
 
     int boxMargin = w * 0.05;
     int borderThickness = w * 0.01;
     int textPadding = w * 0.03;
-
 
     Uint32 wrapLimit = w - (boxMargin * 2) - (borderThickness * 2) - (textPadding * 2);
 
