@@ -1,24 +1,21 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
+#include <SDL_mixer.h> // 記得加入這個
 #include <stdio.h>
 #include <string>
-#include <cmath>
 
-// 核心引擎
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+// 引用
 #include "GameChapter.h"
-#include "LTexture.h"
 #include "StoryManager.h"
-
-// 【重點】這裡只引用模板章節，方便組員測試
-#include "ChapterTemplate.h"
+#include "ChapterTemplate.h" 
 
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
-
-bool init();
-bool loadFonts();
-void close();
 
 // 全域變數
 SDL_Window* gWindow = NULL;
@@ -26,172 +23,125 @@ SDL_Renderer* gRenderer = NULL;
 TTF_Font* gFont = NULL;
 GameChapter* gChapter = NULL;
 
-bool init()
-{
-    bool success = true;
-    if( SDL_Init( SDL_INIT_VIDEO ) < 0 )
-    {
-       printf( "SDL could not initialize! SDL Error: %s\n", SDL_GetError() );
-       success = false;
-    }
-    else
-    {
-       // 設定線性過濾 (抗鋸齒)
-       if( !SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "1" ) )
-       {
-          printf( "Warning: Linear texture filtering not enabled!" );
-       }
-
-       // 開啟 HighDPI 支援 Retina
-       gWindow = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI );
-
-       if( gWindow == NULL )
-       {
-          printf( "Window could not be created! SDL Error: %s\n", SDL_GetError() );
-          success = false;
-       }
-       else
-       {
-          gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC );
-          if( gRenderer == NULL )
-          {
-             printf( "Renderer could not be created! SDL Error: %s\n", SDL_GetError() );
-             success = false;
-          }
-          else
-          {
-             SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
-             int imgFlags = IMG_INIT_PNG;
-             if( !( IMG_Init( imgFlags ) & imgFlags ) )
-             {
-                printf( "SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError() );
-                success = false;
-             }
-             if( TTF_Init() == -1 )
-             {
-                printf( "SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError() );
-                success = false;
-             }
-          }
-       }
+// 為了除錯，把 init 放在這裡簡化
+bool init() {
+    printf("STEP 01: SDL_Init Start\n"); fflush(stdout);
+    if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_AUDIO ) < 0 ) {
+        printf( "SDL Init Failed! %s\n", SDL_GetError() );
+        return false;
     }
 
-    return success;
+    printf("STEP 02: CreateWindow\n"); fflush(stdout);
+    // Windows 暫時拿掉 HighDPI 以免座標錯亂
+    gWindow = SDL_CreateWindow( "Debug Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
+    if( gWindow == NULL ) {
+        printf( "Window Create Failed! %s\n", SDL_GetError() );
+        return false;
+    }
+
+    printf("STEP 03: CreateRenderer\n"); fflush(stdout);
+    gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC );
+    if( gRenderer == NULL ) {
+        printf( "Renderer Create Failed! %s\n", SDL_GetError() );
+        return false;
+    }
+
+    printf("STEP 04: IMG_Init\n"); fflush(stdout);
+    int imgFlags = IMG_INIT_PNG;
+    if( !( IMG_Init( imgFlags ) & imgFlags ) ) {
+        printf( "IMG_Init Failed! %s\n", IMG_GetError() );
+        return false;
+    }
+
+    printf("STEP 05: TTF_Init\n"); fflush(stdout);
+    if( TTF_Init() == -1 ) {
+        printf( "TTF_Init Failed! %s\n", TTF_GetError() );
+        return false;
+    }
+    
+    printf("STEP 06: Mix_Init\n"); fflush(stdout);
+    if( Mix_OpenAudio( 44100, MIX_DEFAULT_FORMAT, 2, 2048 ) < 0 ) {
+        printf( "Mixer Init Failed! %s\n", Mix_GetError() );
+        return false;
+    }
+
+    return true;
 }
 
-bool loadFonts()
-{
-    bool success = true;
-    // 載入高清字體
-    gFont = TTF_OpenFont( "assets/font/zpix.ttf", 64 );
-    if( gFont == NULL )
-    {
-       printf( "Failed to load font! SDL_ttf Error: %s\n", TTF_GetError() );
-       success = false;
+bool loadFonts() {
+    printf("STEP 07: Loading Font...\n"); fflush(stdout);
+    // 這裡請確認路徑！如果不確定，先用 ./assets/...
+    gFont = TTF_OpenFont( "assets/font/lazy.ttf", 28 ); 
+    if( gFont == NULL ) {
+        printf( "ERROR: Failed to load lazy.ttf! SDL_ttf Error: %s\n", TTF_GetError() );
+        return false;
     }
-    return success;
+    printf("STEP 08: Font Loaded Successfully\n"); fflush(stdout);
+    return true;
 }
 
-void close()
-{
-    if (gChapter != NULL) {
-       gChapter->clean();
-       delete gChapter;
-       gChapter = NULL;
-    }
-
-    TTF_CloseFont( gFont );
-    gFont = NULL;
-
-    SDL_DestroyRenderer( gRenderer );
-    SDL_DestroyWindow( gWindow );
-    gWindow = NULL;
-    gRenderer = NULL;
-
+void close() {
+    if (gChapter) { delete gChapter; gChapter = NULL; }
+    if (gFont) { TTF_CloseFont(gFont); gFont = NULL; }
+    if (gRenderer) { SDL_DestroyRenderer(gRenderer); gRenderer = NULL; }
+    if (gWindow) { SDL_DestroyWindow(gWindow); gWindow = NULL; }
+    
+    Mix_Quit();
     TTF_Quit();
     IMG_Quit();
     SDL_Quit();
 }
 
-int main( int argc, char* args[] )
-{
-    if( !init() )
-    {
-       printf( "Failed to initialize!\n" );
-       return -1;
-    }
+int main( int argc, char* args[] ) {
+    // 強制開啟 Console (Windows)
+    #ifdef _WIN32
+        AllocConsole();
+        freopen("CON", "w", stdout);
+        freopen("CON", "w", stderr);
+    #endif
 
-    if (!loadFonts()) {
-        printf( "Failed to load fonts!\n" );
+    printf("DEBUG: Program Started.\n"); fflush(stdout);
+
+    if( !init() ) {
+        printf( "Failed to initialize!\n" );
+        system("pause");
         return -1;
     }
 
-    // ==========================================
-    // 【測試重點】直接建立模板章節
-    // 組員寫完他們的 ChapterTemplate 後，按執行就會跑這裡
-    // ==========================================
+    if( !loadFonts() ) {
+        printf( "Failed to load fonts!\n" );
+        system("pause");
+        return -1;
+    }
+
+    printf("STEP 09: Creating Chapter\n"); fflush(stdout);
+    // 這裡會呼叫 StoryManager 建構子
     gChapter = new ChapterTemplate();
+
+    printf("STEP 10: Loading Chapter Script\n"); fflush(stdout);
+    // 這裡會呼叫 StoryManager::loadScript
     gChapter->load();
 
+    printf("STEP 11: Entering Main Loop\n"); fflush(stdout);
+    
     bool quit = false;
     SDL_Event e;
-    bool isFullscreen = false;
-    int drawableW, drawableH;
 
-    while( !quit )
-    {
-        while( SDL_PollEvent( &e ) != 0 )
-        {
-            if( e.type == SDL_QUIT )
-            {
-               quit = true;
-            }
-
-            // 讓章節處理事件
-            if (gChapter != NULL) {
-               gChapter->handleEvent(e);
-            }
-
-            if( e.type == SDL_KEYDOWN ) {
-               switch( e.key.keysym.sym ) {
-                  case SDLK_f:
-                     isFullscreen = !isFullscreen;
-                     if( isFullscreen ) {
-                        SDL_SetWindowFullscreen( gWindow, SDL_WINDOW_FULLSCREEN_DESKTOP );
-                     }
-                     else {
-                        SDL_SetWindowFullscreen( gWindow, 0 );
-                     }
-                     break;
-
-                  case SDLK_ESCAPE:
-                     quit = true;
-                     break;
-               }
-            }
+    while( !quit ) {
+        while( SDL_PollEvent( &e ) != 0 ) {
+            if( e.type == SDL_QUIT ) quit = true;
+            if (gChapter) gChapter->handleEvent(e);
+            if( e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE ) quit = true;
         }
 
-        // 更新邏輯
-        if (gChapter != NULL)
-        {
-            gChapter->update();
-
-            // 測試模式下，如果結束了就直接退出
-            if (gChapter->isFinished())
-            {
-                printf("--- 測試結束：本章節已完成 ---\n");
-                quit = true;
-            }
-        }
-
-        // 繪圖
         SDL_SetRenderDrawColor( gRenderer, 0, 0, 0, 255 );
         SDL_RenderClear( gRenderer );
 
-        if (gChapter != NULL) {
-            // 自動抓取 Retina / 全螢幕 解析度
-            SDL_GetRendererOutputSize(gRenderer, &drawableW, &drawableH);
-            gChapter->render(drawableW, drawableH);
+        if (gChapter) {
+            // 這裡會呼叫 StoryManager::render
+            // 如果這裡崩潰，代表 updateTexture 還是有問題
+            gChapter->update(); 
+            gChapter->render(SCREEN_WIDTH, SCREEN_HEIGHT);
         }
 
         SDL_RenderPresent( gRenderer );
