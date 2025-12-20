@@ -34,14 +34,15 @@ bool StoryManager::loadScript(std::string path)
 
     while (std::getline(file, line))
     {
+        // 移除 Windows UTF-8 BOM
         if (isFirstLine && line.size() >= 3) {
             if ((unsigned char)line[0] == 0xEF && (unsigned char)line[1] == 0xBB && (unsigned char)line[2] == 0xBF) {
-                printf("DEBUG: Detected BOM in first line, removing it.\n");
                 line.erase(0, 3);
             }
             isFirstLine = false;
         }
 
+        // 移除尾端換行與空白
         while (!line.empty() && (line.back() == '\r' || line.back() == '\n' || line.back() == ' ')) {
             line.pop_back();
         }
@@ -51,9 +52,6 @@ bool StoryManager::loadScript(std::string path)
         }
     }
     file.close();
-
-    printf("DEBUG: Loaded %d lines.\n", (int)mLines.size());
-    fflush(stdout);
 
     isDiaVisible = true;
     mCurrentLineIndex = -1;
@@ -142,6 +140,12 @@ void StoryManager::handleContinue()
 void StoryManager::parseLine(std::string rawLine)
 {
     if (rawLine.empty()) return;
+    
+    // 【防爆檢查】如果字體沒載入，直接跳過，防止 Crash
+    if (gFont == NULL) {
+        printf("ERROR: gFont is NULL in parseLine! Please check font loading.\n");
+        return; 
+    }
 
     if (rawLine[0] == '(') {
         std::string content = rawLine.substr(1);
@@ -150,6 +154,7 @@ void StoryManager::parseLine(std::string rawLine)
         mNameTexture.free();
         return;
     }
+
     if (rawLine.size() >= 3 && rawLine.substr(0, 3) == "（") {
         std::string content = rawLine.substr(3);
         if (content.size() >= 3 && content.substr(content.size() - 3) == "）") {
@@ -247,6 +252,7 @@ bool StoryManager::parseBackslashTag(std::string line)
             mIsTempPuzzle = true;
             return true;
         }
+        
         if (tag.find("BG_") == 0) {
             std::string name = tag.substr(3);
             mBackgroundTexture.loadFromFile("assets/img/background/" + name + ".png");
@@ -313,6 +319,17 @@ void StoryManager::updateTexture()
 {
     if (isFinished()) return;
 
+    // 【防爆檢查】如果字體是 NULL，直接 return，不要讓 SDL_ttf 執行，否則必當機！
+    if (gFont == NULL) {
+        static bool hasPrintedError = false;
+        if (!hasPrintedError) {
+            printf("CRITICAL ERROR: gFont is NULL! Cannot render text.\n");
+            printf("Please check if assets/font/lazy.ttf (or your font) exists.\n");
+            hasPrintedError = true; 
+        }
+        return; 
+    }
+
     std::string text = mShowText;
     if (text.empty()) text = " ";
 
@@ -324,16 +341,19 @@ void StoryManager::updateTexture()
     if (w <= 0 || h <= 0) return;
 
     float scale = (float)h / 960.0f;
-    if (scale <= 0.001f) scale = 0.5f; // 防呆，避免除以零
+    if (scale <= 0.001f) scale = 0.5f; 
 
     int boxMargin = w * 0.05;
     int borderThickness = w * 0.01;
     int textPadding = w * 0.03;
 
     int availableWidth = w - (boxMargin * 2) - (borderThickness * 2) - (textPadding * 2);
-    if (availableWidth <= 0) availableWidth = 100; // 防呆
+    if (availableWidth <= 0) availableWidth = 100; 
 
     Uint32 wrapLimit = (Uint32)(availableWidth / scale);
+    
+    // 防呆：WrapLimit 不能為 0
+    if (wrapLimit == 0) wrapLimit = 100;
 
     mDialogueTexture.loadFromRenderedTextWrapped(text, textColor, wrapLimit);
 }
