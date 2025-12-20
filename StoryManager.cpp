@@ -1,7 +1,7 @@
 #include "StoryManager.h"
 #include <iostream>
 
-StoryManager::StoryManager() : mCurrentLineIndex(-1), mIsTyping(false), mByteIndex(0), mTypeSpeed(50), mLastUpdateTime(0), isDiaVisible(true) {
+StoryManager::StoryManager() : mCurrentLineIndex(-1), mIsTyping(false), mByteIndex(0), mTypeSpeed(50), mLastUpdateTime(0), isDiaVisible(true), mIsTempBG(false), mIsTempChar(false), mIsTempPuzzle(false) {
     if (!mMusicPlayer.init()) {
         printf("Warning: Audio system failed to initialize!\n");
     }
@@ -11,18 +11,23 @@ StoryManager::~StoryManager() {}
 
 bool StoryManager::loadScript(std::string path)
 {
-    std::ifstream file(path);
+    std::ifstream file(path.c_str());
     if (!file.is_open())
     {
-        printf("Unable to open the txt file: %s\n", path.c_str());
-        return false;
+        std::string backupPath = "./" + path;
+        file.open(backupPath.c_str());
+
+        if (!file.is_open()) {
+            printf("Unable to open the txt file: %s\n", path.c_str());
+            return false;
+        }
     }
 
     mLines.clear();
     std::string line;
     while (std::getline(file, line))
     {
-        if (!line.empty() && line.back() == '\r') {
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) {
             line.pop_back();
         }
         if (!line.empty()) {
@@ -34,13 +39,62 @@ bool StoryManager::loadScript(std::string path)
     isDiaVisible = true;
     mCurrentLineIndex = -1;
     mBackgroundTexture.free();
+    mPuzzleTexture.free();
     mCharacter.free();
     mNameTexture.free();
     mCharacter.setScale(0.9f);
 
+    mIsTempBG = false;
+    mIsTempChar = false;
+    mIsTempPuzzle = false;
+
     handleContinue();
 
     return true;
+}
+
+void StoryManager::handleBack()
+{
+    if (mIsTempBG) {
+        mBackgroundTexture.free();
+        mIsTempBG = false;
+    }
+    if (mIsTempChar) {
+        mCharacter.free();
+        mIsTempChar = false;
+    }
+    if (mIsTempPuzzle) {
+        mPuzzleTexture.free();
+        mIsTempPuzzle = false;
+    }
+
+    if (mLines.empty() || mCurrentLineIndex <= 0) return;
+
+    int searchIndex = mCurrentLineIndex - 1;
+    while (searchIndex >= 0)
+    {
+        std::string line = mLines[searchIndex];
+
+        bool isSquareTag = (line.size() > 2 && line.front() == '[' && line.back() == ']');
+
+        if (!isSquareTag)
+        {
+            break;
+        }
+        searchIndex--;
+    }
+
+    if (searchIndex < 0) {
+        mCurrentLineIndex = -1;
+    } else {
+        mCurrentLineIndex = searchIndex - 1;
+    }
+
+    mIsTyping = false;
+    mShowText = "";
+    mByteIndex = 0;
+
+    handleContinue();
 }
 
 void StoryManager::handleContinue()
@@ -53,12 +107,30 @@ void StoryManager::handleContinue()
     }
     else
     {
+        if (mIsTempBG) {
+            mBackgroundTexture.free();
+            mIsTempBG = false;
+        }
+        if (mIsTempChar) {
+            mCharacter.free();
+            mIsTempChar = false;
+        }
+        if (mIsTempPuzzle) {
+            mPuzzleTexture.free();
+            mIsTempPuzzle = false;
+        }
+
         mCurrentLineIndex++;
         while (!isFinished())
         {
             std::string line = mLines[mCurrentLineIndex];
+
             if (parseTag(line)) {
                 mCurrentLineIndex++;
+            }
+            else if (parseBackslashTag(line)) {
+                mCurrentLineIndex++;
+                return;
             }
             else {
                 break;
@@ -124,7 +196,6 @@ void StoryManager::parseLine(std::string rawLine)
         }
     }
 
-    // 名字長度限制 (防呆)
     if (colonPos != std::string::npos && colonPos < 18)
     {
         name = rawLine.substr(0, colonPos);
@@ -140,7 +211,7 @@ void StoryManager::parseLine(std::string rawLine)
     mNameTexture.free();
 
     if (!name.empty()) {
-        SDL_Color nameColor = { 255, 255, 0 }; // 黃色名字
+        SDL_Color nameColor = { 255, 255, 0 };
         mNameTexture.loadFromRenderedText(name, nameColor);
     }
 }
@@ -187,7 +258,6 @@ bool StoryManager::parseTag(std::string line)
         }
         if (tag.find("MUSIC_") == 0)
         {
-            // [MUSIC_bgm01] -> assets/music/bgm01.mp3
             std::string name = tag.substr(6);
             if (name == "stop") {
                 mMusicPlayer.stop();
@@ -195,8 +265,6 @@ bool StoryManager::parseTag(std::string line)
             }
 
             std::string path = "assets/music/" + name + ".mp3";
-
-            // 呼叫音樂
             mMusicPlayer.playMusic(path);
 
             return true;
@@ -213,6 +281,101 @@ bool StoryManager::parseTag(std::string line)
         if (tag == "CLEAR")
         {
             mCharacter.free();
+            mPuzzleTexture.free();
+            return true;
+        }
+        if (tag == "HIDE") {
+            isDiaVisible = false;
+            return true;
+        }
+        if (tag == "SHOW") {
+            isDiaVisible = true;
+            return true;
+        }
+
+    }
+    return false;
+}
+
+bool StoryManager::parseBackslashTag(std::string line)
+{
+    if (line.size() > 2 && line.front() == '\\' && line.back() == '\\')
+    {
+        std::string tag = line.substr(1, line.size() - 2);
+
+        if (tag.find("puzzle_") == 0)
+        {
+            std::string name = tag.substr(7);
+            std::string path = "assets/img/puzzle/" + name + ".png";
+            if (!mPuzzleTexture.loadFromFile(path)) {
+                printf("Failed to load Puzzle: %s\n", path.c_str());
+            }
+            mIsTempPuzzle = true;
+            return true;
+        }
+
+        if (tag.find("BG_") == 0)
+        {
+            std::string name = tag.substr(3);
+            std::string path = "assets/img/background/" + name + ".png";
+            if (!mBackgroundTexture.loadFromFile(path)) {
+                printf("Failed to load BG: %s\n", path.c_str());
+            }
+            mIsTempBG = true;
+            return true;
+        }
+        if (tag.find("CHAR_") == 0)
+        {
+            std::string fileName = tag.substr(5);
+            std::string folderName = fileName;
+            size_t underscorePos = fileName.find('_');
+            if (underscorePos != std::string::npos) {
+                folderName = fileName.substr(0, underscorePos);
+            }
+
+            if (folderName == "xiaoxun" || folderName == "xiaode") {
+                mCharacter.setScale(0.85f);
+            }
+            else if (folderName == "senpai") {
+                mCharacter.setScale(0.95f);
+            }
+            else {
+                mCharacter.setScale(0.9f);
+            }
+
+            std::string path = "assets/img/" + folderName + "/" + fileName + ".png";
+            if (!mCharacter.loadFromFile(path)) {
+                printf("Failed to load CHAR: %s\n", path.c_str());
+            }
+            mIsTempChar = true;
+            return true;
+        }
+        if (tag.find("MUSIC_") == 0)
+        {
+            std::string name = tag.substr(6);
+            if (name == "stop") {
+                mMusicPlayer.stop();
+                return true;
+            }
+
+            std::string path = "assets/music/" + name + ".mp3";
+            mMusicPlayer.playMusic(path);
+
+            return true;
+        }
+        if (tag.find("SFX_") == 0) {
+            std::string name = tag.substr(4);
+            std::string path = "assets/sound/" + name + ".wav";
+
+            mMusicPlayer._sfxManager.load(name, path);
+            mMusicPlayer._sfxManager.play(name);
+
+            return true;
+        }
+        if (tag == "CLEAR")
+        {
+            mCharacter.free();
+            mPuzzleTexture.free();
             return true;
         }
         if (tag == "HIDE") {
@@ -263,7 +426,7 @@ void StoryManager::updateTexture()
     SDL_GetRendererOutputSize(gRenderer, &w, &h);
 
     float scale = (float)h / 960.0f;
-    if (scale < 1.0f) scale = 1.0f; // 避免太小
+    if (scale < 1.0f) scale = 1.0f;
 
     int boxMargin = w * 0.05;
     int borderThickness = w * 0.01;
@@ -281,10 +444,8 @@ void StoryManager::render(int screenW, int screenH)
 {
     if (isFinished()) return;
 
-    // 計算全域縮放比例
     float globalScale = (float)screenH / 960.0f;
 
-    // 背景
     if (mBackgroundTexture.getWidth() > 0) {
         int bgW = mBackgroundTexture.getWidth();
         int bgH = mBackgroundTexture.getHeight();
@@ -298,7 +459,6 @@ void StoryManager::render(int screenW, int screenH)
         mBackgroundTexture.render(drawX, drawY, drawW, drawH);
     }
 
-    // 人物
     int boxHeight = screenH * 0.35;
     int boxY = screenH - boxHeight - (screenH * 0.05);
 
@@ -309,6 +469,19 @@ void StoryManager::render(int screenW, int screenH)
         int charX = (screenW - targetWidth) / 2;
         int charY = screenH - targetHeight;
         mCharacter.render(charX, charY, targetWidth, targetHeight);
+    }
+
+    if (mPuzzleTexture.getWidth() > 0) {
+        int bgW = mPuzzleTexture.getWidth();
+        int bgH = mPuzzleTexture.getHeight();
+        float scaleX = (float)screenW / bgW;
+        float scaleY = (float)screenH / bgH;
+        float scale = (scaleX > scaleY) ? scaleX : scaleY;
+        int drawW = (int)(bgW * scale);
+        int drawH = (int)(bgH * scale);
+        int drawX = (screenW - drawW) / 2;
+        int drawY = (screenH - drawH) / 2;
+        mPuzzleTexture.render(drawX, drawY, drawW, drawH);
     }
 
     if (isDiaVisible) {
@@ -331,10 +504,8 @@ void StoryManager::render(int screenW, int screenH)
         SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
         SDL_RenderFillRect(gRenderer, &rect2);
 
-        // 名字框
         if (mNameTexture.getWidth() > 0)
         {
-            // 名字圖片
             int nameTexW = mNameTexture.getWidth() * globalScale;
             int nameTexH = mNameTexture.getHeight() * globalScale;
 
@@ -358,19 +529,15 @@ void StoryManager::render(int screenW, int screenH)
             SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
             SDL_RenderFillRect(gRenderer, &nameRect2);
 
-            // 畫名字
             mNameTexture.render(nameBoxX + namePadding, nameBoxY + namePadding, nameTexW, nameTexH);
         }
 
-        // 對話內容
         int textX = boxMargin + borderThickness + textPadding;
         int textY = boxY + borderThickness + textPadding;
 
-        // (原圖大小 * 縮放比例)
         int textDrawW = mDialogueTexture.getWidth() * globalScale;
         int textDrawH = mDialogueTexture.getHeight() * globalScale;
 
-        // 使用 LTexture 的縮放繪圖功能
         mDialogueTexture.render(textX, textY, textDrawW, textDrawH);
     }
 }

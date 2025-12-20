@@ -19,25 +19,28 @@ public:
 
     bool loadScript(std::string path);
     void handleContinue();
+    void handleBack();
     void update();
     void render(int screenW, int screenH);
     bool isFinished();
     std::string getCurrentLine();
 
 protected:
-    void updateTexture(); // 更新對話內容文字
+    void updateTexture();
 
     void parseLine(std::string rawLine);
 
     bool parseTag(std::string line);
+    bool parseBackslashTag(std::string line);
     int getUTF8CharLength(char c);
 
     std::vector<std::string> mLines;
     int mCurrentLineIndex;
 
-    LTexture mDialogueTexture;   // 對話內容圖片
-    LTexture mNameTexture;       // 名字圖片
+    LTexture mDialogueTexture;
+    LTexture mNameTexture;
     LTexture mBackgroundTexture;
+    LTexture mPuzzleTexture;
 
     Character mCharacter;
     BackgroundMusic mMusicPlayer;
@@ -49,6 +52,10 @@ protected:
     size_t mByteIndex;
     Uint32 mLastUpdateTime;
     Uint32 mTypeSpeed;
+
+    bool mIsTempBG;
+    bool mIsTempChar;
+    bool mIsTempPuzzle;
 };
 
 #endif
