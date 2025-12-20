@@ -1,5 +1,6 @@
 #include "StoryManager.h"
 #include <iostream>
+#include <algorithm> 
 
 StoryManager::StoryManager() : mCurrentLineIndex(-1), mIsTyping(false), mByteIndex(0), mTypeSpeed(50), mLastUpdateTime(0), isDiaVisible(true), mIsTempBG(false), mIsTempChar(false), mIsTempPuzzle(false) {
     if (!mMusicPlayer.init()) {
@@ -11,6 +12,9 @@ StoryManager::~StoryManager() {}
 
 bool StoryManager::loadScript(std::string path)
 {
+    printf("DEBUG: Loading script from %s...\n", path.c_str());
+    fflush(stdout); 
+
     std::ifstream file(path.c_str());
     if (!file.is_open())
     {
@@ -18,24 +22,38 @@ bool StoryManager::loadScript(std::string path)
         file.open(backupPath.c_str());
 
         if (!file.is_open()) {
-            printf("Unable to open the txt file: %s\n", path.c_str());
+            printf("ERROR: Unable to open file: %s\n", path.c_str());
+            fflush(stdout);
             return false;
         }
     }
 
     mLines.clear();
     std::string line;
+    bool isFirstLine = true;
+
     while (std::getline(file, line))
     {
-        // 同時移除 \r, \n 以及每一行尾端多餘的空白鍵 (防呆)
+        if (isFirstLine && line.size() >= 3) {
+            if ((unsigned char)line[0] == 0xEF && (unsigned char)line[1] == 0xBB && (unsigned char)line[2] == 0xBF) {
+                printf("DEBUG: Detected BOM in first line, removing it.\n");
+                line.erase(0, 3);
+            }
+            isFirstLine = false;
+        }
+
         while (!line.empty() && (line.back() == '\r' || line.back() == '\n' || line.back() == ' ')) {
             line.pop_back();
         }
+        
         if (!line.empty()) {
             mLines.push_back(line);
         }
     }
     file.close();
+
+    printf("DEBUG: Loaded %d lines.\n", (int)mLines.size());
+    fflush(stdout);
 
     isDiaVisible = true;
     mCurrentLineIndex = -1;
@@ -56,19 +74,9 @@ bool StoryManager::loadScript(std::string path)
 
 void StoryManager::handleBack()
 {
-    // 回到上一行時，先把所有暫存的圖片清掉
-    if (mIsTempBG) {
-        mBackgroundTexture.free();
-        mIsTempBG = false;
-    }
-    if (mIsTempChar) {
-        mCharacter.free();
-        mIsTempChar = false;
-    }
-    if (mIsTempPuzzle) {
-        mPuzzleTexture.free();
-        mIsTempPuzzle = false;
-    }
+    if (mIsTempBG) { mBackgroundTexture.free(); mIsTempBG = false; }
+    if (mIsTempChar) { mCharacter.free(); mIsTempChar = false; }
+    if (mIsTempPuzzle) { mPuzzleTexture.free(); mIsTempPuzzle = false; }
 
     if (mLines.empty() || mCurrentLineIndex <= 0) return;
 
@@ -76,22 +84,12 @@ void StoryManager::handleBack()
     while (searchIndex >= 0)
     {
         std::string line = mLines[searchIndex];
-        
         bool isSquareTag = (line.size() > 2 && line.front() == '[' && line.back() == ']');
-        
-        if (!isSquareTag)
-        {
-            break;
-        }
+        if (!isSquareTag) break;
         searchIndex--;
     }
 
-    if (searchIndex < 0) {
-        mCurrentLineIndex = -1;
-    } else {
-        mCurrentLineIndex = searchIndex - 1;
-    }
-
+    mCurrentLineIndex = (searchIndex < 0) ? -1 : (searchIndex - 1);
     mIsTyping = false;
     mShowText = "";
     mByteIndex = 0;
@@ -109,19 +107,9 @@ void StoryManager::handleContinue()
     }
     else
     {
-        // 離開上一行，進入新的一行前，把暫存的東西殺掉
-        if (mIsTempBG) {
-            mBackgroundTexture.free();
-            mIsTempBG = false;
-        }
-        if (mIsTempChar) {
-            mCharacter.free();
-            mIsTempChar = false;
-        }
-        if (mIsTempPuzzle) {
-            mPuzzleTexture.free();
-            mIsTempPuzzle = false;
-        }
+        if (mIsTempBG) { mBackgroundTexture.free(); mIsTempBG = false; }
+        if (mIsTempChar) { mCharacter.free(); mIsTempChar = false; }
+        if (mIsTempPuzzle) { mPuzzleTexture.free(); mIsTempPuzzle = false; }
 
         mCurrentLineIndex++;
         while (!isFinished())
@@ -153,33 +141,24 @@ void StoryManager::handleContinue()
 
 void StoryManager::parseLine(std::string rawLine)
 {
+    if (rawLine.empty()) return;
 
-    if (!rawLine.empty() && rawLine[0] == '(')
-    {
+    if (rawLine[0] == '(') {
         std::string content = rawLine.substr(1);
-
-        if (!content.empty() && content.back() == ')') {
-            content.pop_back();
-        }
-
+        if (!content.empty() && content.back() == ')') content.pop_back();
         mTargetText = content;
         mNameTexture.free();
         return;
     }
-
-    if (rawLine.find("（") == 0)
-    {
+    if (rawLine.size() >= 3 && rawLine.substr(0, 3) == "（") {
         std::string content = rawLine.substr(3);
-
         if (content.size() >= 3 && content.substr(content.size() - 3) == "）") {
             content = content.substr(0, content.size() - 3);
         }
-
         mTargetText = content;
         mNameTexture.free();
         return;
     }
-
 
     std::string name = "";
     std::string content = rawLine;
@@ -199,15 +178,9 @@ void StoryManager::parseLine(std::string rawLine)
         }
     }
 
-    if (colonPos != std::string::npos && colonPos < 18)
-    {
+    if (colonPos != std::string::npos && colonPos < 18) {
         name = rawLine.substr(0, colonPos);
         content = rawLine.substr(colonPos + skipLength);
-    }
-    else
-    {
-        name = "";
-        content = rawLine;
     }
 
     mTargetText = content;
@@ -225,77 +198,39 @@ bool StoryManager::parseTag(std::string line)
     {
         std::string tag = line.substr(1, line.size() - 2);
 
-        if (tag.find("BG_") == 0)
-        {
+        if (tag.find("BG_") == 0) {
             std::string name = tag.substr(3);
-            std::string path = "assets/img/background/" + name + ".png";
-            if (!mBackgroundTexture.loadFromFile(path)) {
-                printf("Failed to load BG: %s\n", path.c_str());
-            }
+            mBackgroundTexture.loadFromFile("assets/img/background/" + name + ".png");
             return true;
         }
-        if (tag.find("CHAR_") == 0)
-        {
+        if (tag.find("CHAR_") == 0) {
             std::string fileName = tag.substr(5);
             std::string folderName = fileName;
             size_t underscorePos = fileName.find('_');
-            if (underscorePos != std::string::npos) {
-                folderName = fileName.substr(0, underscorePos);
-            }
+            if (underscorePos != std::string::npos) folderName = fileName.substr(0, underscorePos);
 
-            if (folderName == "xiaoxun" || folderName == "xiaode") {
-                mCharacter.setScale(0.85f);
-            }
-            else if (folderName == "senpai") {
-                mCharacter.setScale(0.95f);
-            }
-            else {
-                mCharacter.setScale(0.9f);
-            }
+            if (folderName == "xiaoxun" || folderName == "xiaode") mCharacter.setScale(0.85f);
+            else if (folderName == "senpai") mCharacter.setScale(0.95f);
+            else mCharacter.setScale(0.9f);
 
-            std::string path = "assets/img/" + folderName + "/" + fileName + ".png";
-            if (!mCharacter.loadFromFile(path)) {
-                printf("Failed to load CHAR: %s\n", path.c_str());
-            }
+            mCharacter.loadFromFile("assets/img/" + folderName + "/" + fileName + ".png");
             return true;
         }
-        if (tag.find("MUSIC_") == 0)
-        {
+        if (tag.find("MUSIC_") == 0) {
             std::string name = tag.substr(6);
-            if (name == "stop") {
-                mMusicPlayer.stop();
-                return true;
-            }
-
-            std::string path = "assets/music/" + name + ".mp3";
-            mMusicPlayer.playMusic(path);
-
+            if (name == "stop") mMusicPlayer.stop();
+            else mMusicPlayer.playMusic("assets/music/" + name + ".mp3");
             return true;
         }
         if (tag.find("SFX_") == 0) {
             std::string name = tag.substr(4);
-            std::string path = "assets/sound/" + name + ".wav";
-
-            mMusicPlayer._sfxManager.load(name, path);
+            mMusicPlayer._sfxManager.load(name, "assets/sound/" + name + ".wav");
             mMusicPlayer._sfxManager.play(name);
-
             return true;
         }
-        if (tag == "CLEAR")
-        {
-            mCharacter.free();
-            mPuzzleTexture.free();
-            return true;
-        }
-        if (tag == "HIDE") {
-            isDiaVisible = false;
-            return true;
-        }
-        if (tag == "SHOW") {
-            isDiaVisible = true;
-            return true;
-        }
-
+        if (tag == "CLEAR") { mCharacter.free(); mPuzzleTexture.free(); return true; }
+        if (tag == "HIDE") { isDiaVisible = false; return true; }
+        if (tag == "SHOW") { isDiaVisible = true; return true; }
     }
     return false;
 }
@@ -306,89 +241,47 @@ bool StoryManager::parseBackslashTag(std::string line)
     {
         std::string tag = line.substr(1, line.size() - 2);
 
-        if (tag.find("puzzle_") == 0)
-        {
+        if (tag.find("puzzle_") == 0) {
             std::string name = tag.substr(7);
-            std::string path = "assets/img/puzzle/" + name + ".png";
-            if (!mPuzzleTexture.loadFromFile(path)) {
-                printf("Failed to load Puzzle: %s\n", path.c_str());
-            }
+            mPuzzleTexture.loadFromFile("assets/img/puzzle/" + name + ".png");
             mIsTempPuzzle = true;
             return true;
         }
-        
-        if (tag.find("BG_") == 0)
-        {
+        if (tag.find("BG_") == 0) {
             std::string name = tag.substr(3);
-            std::string path = "assets/img/background/" + name + ".png";
-            if (!mBackgroundTexture.loadFromFile(path)) {
-                printf("Failed to load BG: %s\n", path.c_str());
-            }
+            mBackgroundTexture.loadFromFile("assets/img/background/" + name + ".png");
             mIsTempBG = true;
             return true;
         }
-        if (tag.find("CHAR_") == 0)
-        {
+        if (tag.find("CHAR_") == 0) {
             std::string fileName = tag.substr(5);
             std::string folderName = fileName;
             size_t underscorePos = fileName.find('_');
-            if (underscorePos != std::string::npos) {
-                folderName = fileName.substr(0, underscorePos);
-            }
+            if (underscorePos != std::string::npos) folderName = fileName.substr(0, underscorePos);
 
-            if (folderName == "xiaoxun" || folderName == "xiaode") {
-                mCharacter.setScale(0.85f);
-            }
-            else if (folderName == "senpai") {
-                mCharacter.setScale(0.95f);
-            }
-            else {
-                mCharacter.setScale(0.9f);
-            }
+            if (folderName == "xiaoxun" || folderName == "xiaode") mCharacter.setScale(0.85f);
+            else if (folderName == "senpai") mCharacter.setScale(0.95f);
+            else mCharacter.setScale(0.9f);
 
-            std::string path = "assets/img/" + folderName + "/" + fileName + ".png";
-            if (!mCharacter.loadFromFile(path)) {
-                printf("Failed to load CHAR: %s\n", path.c_str());
-            }
+            mCharacter.loadFromFile("assets/img/" + folderName + "/" + fileName + ".png");
             mIsTempChar = true;
             return true;
         }
-        if (tag.find("MUSIC_") == 0)
-        {
+        if (tag.find("MUSIC_") == 0) {
             std::string name = tag.substr(6);
-            if (name == "stop") {
-                mMusicPlayer.stop();
-                return true;
-            }
-
-            std::string path = "assets/music/" + name + ".mp3";
-            mMusicPlayer.playMusic(path);
-
+            if (name == "stop") mMusicPlayer.stop();
+            else mMusicPlayer.playMusic("assets/music/" + name + ".mp3");
             return true;
         }
         if (tag.find("SFX_") == 0) {
             std::string name = tag.substr(4);
-            std::string path = "assets/sound/" + name + ".wav";
-
-            mMusicPlayer._sfxManager.load(name, path);
+            mMusicPlayer._sfxManager.load(name, "assets/sound/" + name + ".wav");
             mMusicPlayer._sfxManager.play(name);
-
             return true;
         }
-        if (tag == "CLEAR")
-        {
-            mCharacter.free();
-            mPuzzleTexture.free();
-            return true;
-        }
-        if (tag == "HIDE") {
-            isDiaVisible = false;
-            return true;
-        }
-        if (tag == "SHOW") {
-            isDiaVisible = true;
-            return true;
-        }
+        if (tag == "CLEAR") { mCharacter.free(); mPuzzleTexture.free(); return true; }
+        if (tag == "HIDE") { isDiaVisible = false; return true; }
+        if (tag == "SHOW") { isDiaVisible = true; return true; }
     }
     return false;
 }
@@ -428,17 +321,19 @@ void StoryManager::updateTexture()
     int w, h;
     SDL_GetRendererOutputSize(gRenderer, &w, &h);
 
+    if (w <= 0 || h <= 0) return;
+
     float scale = (float)h / 960.0f;
-    
-    // if (scale < 1.0f) scale = 1.0f;
+    if (scale <= 0.001f) scale = 0.5f; // 防呆，避免除以零
 
     int boxMargin = w * 0.05;
     int borderThickness = w * 0.01;
     int textPadding = w * 0.03;
 
-    Uint32 wrapLimit = w - (boxMargin * 2) - (borderThickness * 2) - (textPadding * 2);
+    int availableWidth = w - (boxMargin * 2) - (borderThickness * 2) - (textPadding * 2);
+    if (availableWidth <= 0) availableWidth = 100; // 防呆
 
-    wrapLimit = (Uint32)(wrapLimit / scale);
+    Uint32 wrapLimit = (Uint32)(availableWidth / scale);
 
     mDialogueTexture.loadFromRenderedTextWrapped(text, textColor, wrapLimit);
 }
@@ -446,6 +341,8 @@ void StoryManager::updateTexture()
 void StoryManager::render(int screenW, int screenH)
 {
     if (isFinished()) return;
+    
+    if (screenW <= 0 || screenH <= 0) return;
 
     float globalScale = (float)screenH / 960.0f;
 
