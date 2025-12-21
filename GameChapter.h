@@ -2,6 +2,11 @@
 #define FONTSOFPROJECT_GAMECHAPTER_H
 
 #include <SDL.h>
+enum class SceneID {
+    NONE,       // 還沒結束，繼續跑
+    SCENE_2T,   // 成功路線
+    SCENE_2F    // 失敗路線
+};
 
 class GameChapter {
 public:
@@ -22,6 +27,7 @@ public:
 
     virtual void clean() = 0;
 
+    virtual SceneID getCurrentStatus() { return SceneID::NONE; }
 };
 
 #endif //FONTSOFPROJECT_GAMECHAPTER_H

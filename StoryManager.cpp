@@ -1,10 +1,11 @@
 #include "StoryManager.h"
 #include <iostream>
 
-StoryManager::StoryManager() : mCurrentLineIndex(-1), mIsTyping(false), mByteIndex(0), mTypeSpeed(50), mLastUpdateTime(0), isDiaVisible(true), mIsTempBG(false), mIsTempChar(false), mIsTempPuzzle(false) {
+StoryManager::StoryManager() : mCurrentLineIndex(-1), mIsTyping(false), mByteIndex(0), mTypeSpeed(50), mLastUpdateTime(0), isDiaVisible(true), mIsTempBG(false), mIsTempChar(false), mIsTempPuzzle(false), mRequestPassword(false) {
     if (!mMusicPlayer.init()) {
         printf("Warning: Audio system failed to initialize!\n");
     }
+    mMusicPlayer._sfxManager.load("type_sound", "assets/sound/type.wav");
 }
 
 StoryManager::~StoryManager() {}
@@ -143,6 +144,7 @@ void StoryManager::handleContinue()
             mByteIndex = 0;
             mIsTyping = true;
             mLastUpdateTime = SDL_GetTicks();
+            mSoundCounter = 0;
         }
     }
 }
@@ -385,6 +387,11 @@ bool StoryManager::parseBackslashTag(std::string line)
             isDiaVisible = true;
             return true;
         }
+        if (tag == "PASSWORD")
+        {
+            mRequestPassword = true;
+            return true;
+        }
     }
     return false;
 }
@@ -404,6 +411,13 @@ void StoryManager::update()
             mByteIndex += charLen;
             updateTexture();
             mLastUpdateTime = currentTime;
+            if (firstByte != ' ' && firstByte != '\n') {
+                mSoundCounter++;
+
+                if (mSoundCounter % 2 != 0) {
+                    mMusicPlayer._sfxManager.play("type_sound");
+                }
+            }
         }
         else
         {
@@ -425,7 +439,7 @@ void StoryManager::updateTexture()
     SDL_GetRendererOutputSize(gRenderer, &w, &h);
 
     float scale = (float)h / 960.0f;
-    //if (scale < 1.0f) scale = 1.0f;
+    if (scale < 1.0f) scale = 1.0f;
 
     int boxMargin = w * 0.05;
     int borderThickness = w * 0.01;
@@ -564,4 +578,11 @@ std::string StoryManager::getCurrentLine()
 {
     if (isFinished()) return "";
     return mLines[mCurrentLineIndex];
+}
+
+bool StoryManager::isAtLastLine()
+{
+    if (mLines.empty()) return true;
+
+    return mCurrentLineIndex >= (int)mLines.size() - 1;
 }

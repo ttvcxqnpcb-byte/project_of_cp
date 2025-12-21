@@ -1,19 +1,19 @@
-#include "GamePrologue.h"
+#include "GameScene1.h"
 #include <stdio.h>
 
-ChapterPrologue::ChapterPrologue() {
+ChapterScene1::ChapterScene1() {
 }
 
-ChapterPrologue::~ChapterPrologue() {
+ChapterScene1::~ChapterScene1() {
 }
 
-void ChapterPrologue::load() {
-    if (!prologue.loadScript("assets/txt/prologue.txt")) {
+void ChapterScene1::load() {
+    if (!prologue.loadScript("assets/txt/scene1.txt")) {
         printf("Fail to load prologue txt\n");
     }
 }
 
-void ChapterPrologue::handleEvent(SDL_Event& e) {
+void ChapterScene1::handleEvent(SDL_Event& e) {
     if (e.type == SDL_KEYDOWN) {
         switch( e.key.keysym.sym ) {
             case SDLK_SPACE:
@@ -21,7 +21,7 @@ void ChapterPrologue::handleEvent(SDL_Event& e) {
             case SDLK_RETURN:
                 prologue.handleContinue();
                 break;
-                case SDLK_UP:
+            case SDLK_UP:
                 prologue.handleBack();
         }
     }
@@ -30,17 +30,17 @@ void ChapterPrologue::handleEvent(SDL_Event& e) {
     }
 }
 
-void ChapterPrologue::update() {
+void ChapterScene1::update() {
     prologue.update();
 }
 
-void ChapterPrologue::render(int w, int h) {
+void ChapterScene1::render(int w, int h) {
     prologue.render(w, h);
 }
 
-bool ChapterPrologue::isFinished() {
+bool ChapterScene1::isFinished() {
     return prologue.isFinished();
 }
 
-void ChapterPrologue::clean() {
+void ChapterScene1::clean() {
 }

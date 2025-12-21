@@ -2,16 +2,16 @@
 // Created by 曾暐勛 on 2025/12/9.
 //
 
-#ifndef FONTSOFPROJECT_GAMEPROLOGUE_H
-#define FONTSOFPROJECT_GAMEPROLOGUE_H
+#ifndef GAMESCENE1_H
+#define GAMESCENE1_H
 #include "StoryManager.h"
 #include "GameChapter.h"
 #include <stdio.h>
 
-class ChapterPrologue : public GameChapter {
-    public:
-    ChapterPrologue();
-    ~ChapterPrologue() override;
+class ChapterScene1 : public GameChapter {
+public:
+    ChapterScene1();
+    ~ChapterScene1() override;
 
     void load() override;
 
@@ -25,8 +25,8 @@ class ChapterPrologue : public GameChapter {
 
     void clean() override;
 
-    private:
+private:
     StoryManager prologue;
 };
 
-#endif //FONTSOFPROJECT_GAMEPROLOGUE_H
+#endif

@@ -12,6 +12,7 @@ bool BackgroundMusic::init() {
         std::cerr << "Mixer Init Error: " << Mix_GetError() << std::endl;
         return false;
     }
+    Mix_VolumeMusic(32);
     return true;
 }
 

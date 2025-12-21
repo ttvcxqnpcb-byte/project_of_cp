@@ -25,6 +25,15 @@ public:
     bool isFinished();
     std::string getCurrentLine();
 
+    bool checkPasswordRequest() {
+        if (mRequestPassword) {
+            mRequestPassword = false;
+            return true;
+        }
+        return false;
+    }
+    bool isAtLastLine();
+
 protected:
     void updateTexture();
 
@@ -45,6 +54,7 @@ protected:
     Character mCharacter;
     BackgroundMusic mMusicPlayer;
 
+    bool mRequestPassword;
     bool mIsTyping;
     bool isDiaVisible;
     std::string mTargetText;
@@ -52,6 +62,8 @@ protected:
     size_t mByteIndex;
     Uint32 mLastUpdateTime;
     Uint32 mTypeSpeed;
+
+    int mSoundCounter;
 
     bool mIsTempBG;
     bool mIsTempChar;
